@@ -136,8 +136,9 @@ mt76_dir() { echo "/sys/kernel/debug/ieee80211/$(basename "$(readlink -f "/sys/c
 # ad-hoc cell can start there: the AX201 refuses every 5 GHz one (EINVAL on
 # 149 under a GB regdomain, where 44 is "No IR" until it has an AP there), so
 # exclusive_up tries them in this order.
-# An active monitor gets channel 6 alone. On the MT7922 its unicast to the
-# phone never reached the air on 44 (none of 132 frames, to an independent
+# An active monitor gets channel 6 alone. The MT7921/MT7922 (mt7921e) sends
+# unicast injected from it at 1 Mbit/s CCK whatever rate OWL asks for, so on
+# 44 none of the MT7922's reached the air (0 of 132, to an independent
 # capture), while on 6 115 of 121 did, and the phone ACKed 100.
 tx_channels() {  # PHY
   local ok c order="5220 5745 2437"

@@ -55,8 +55,8 @@ and turn it on from the bar.
 | Intel AX201 | `iwlwifi` | ✅ Exclusive | Ubuntu 24.04 (kernel 6.8); CachyOS (kernel 7.2.9) |
 | Intel AX211 | `iwlwifi` | ✅ Exclusive | ThinkPad X1, `8086:51f1`, Ubuntu 26.04 (kernel 7.0); XPS 9320, `8086:51f0`, Arch (kernel 7.2.3) |
 | Intel BE (Panther Lake) | `iwlwifi` | ✅ Exclusive | XPS 16, `8086:e440`, Arch (kernel 7.2) |
-| MediaTek MT7921 | `mt7921e` | ✅ Exclusive ([active monitor](#active-monitor)) | `14c3:7961`, CachyOS (kernel 7.2.9) |
-| MediaTek MT7922 (RZ616) | `mt7921e` | ✅ Exclusive ([active monitor](#active-monitor)) | Minisforum MS-A2, `14c3:0616`, NixOS 26.05 (kernels 6.18 and 7.2.5) |
+| MediaTek MT7921 | `mt7921e` | ⚠️ Exclusive ([active monitor](#active-monitor)), opt-in ([#14](https://github.com/t4t5/omdrop-owl/issues/14)) | `14c3:7961`, CachyOS (kernel 7.2.9) |
+| MediaTek MT7922 (RZ616) | `mt7921e` | ⚠️ Exclusive ([active monitor](#active-monitor)), opt-in ([#14](https://github.com/t4t5/omdrop-owl/issues/14)) | Minisforum MS-A2, `14c3:0616`, NixOS 26.05 (kernels 6.18 and 7.2.5) |
 | MediaTek MT7612U (USB) | `mt76x2u` | ✅ Exclusive ([active monitor](#active-monitor)) | `0e8d:7612` (kernel 7.2.9) |
 | Intel AX200 | `iwlwifi` | ❓ Exclusive untested | — |
 | Intel AX210 | `iwlwifi` | ❓ Exclusive untested | — |
@@ -67,6 +67,7 @@ and turn it on from the bar.
 | Realtek RTL8852BE / RTL8852CE | `rtw89_8852be` / `rtw89_8852ce` | ❓ Untested (opt-in) | — |
 
 - ✅ means both directions work
+- ⚠️ means both directions have worked, but not reliably (see [Known issues](#known-issues))
 - ❌ means that the mode was tried and fails.
 
 One card name can cover chips that behave differently, so a report from a machine, PCI ID
@@ -141,7 +142,8 @@ by kmod-midori).
 - The Wi-Fi interface itself becomes a passive monitor first. An active
   monitor alone accepted channel changes but stayed on its old channel.
 - It runs on channel 6 only. On 44, the MT7922 put none of its unicast on the
-  air, while on 6 nearly all of it reached the phone.
+  air, while on 6 nearly all of it reached the phone, at 1 Mbit/s (see
+  [Known issues](#known-issues)).
 
 ## Development
 
@@ -159,8 +161,14 @@ installs the pacman package from the checkout.
   1.3 MB/s): injected frames leave at most one every ~2.5 ms.
 - **Intel cards are slow**, since AWDL on channel 6 gets few of the iPhone's
   slots: a 2.4 MB photo takes 10–17 s on an AX201.
-- **On an active monitor, a transfer can take a retry to start.** Until an
-  exchange is under way, an iPhone connected to Wi-Fi on 5 GHz visits channel 6
-  for one slot in sixteen, and the first round trip has to land in it. Once
-  the phone is talking to us it gives channel 6 up to six slots. If the
-  computer doesn't show up, close and reopen the share sheet.
+- **The MT7921/MT7922 are unreliable on an active monitor.** `mt7921e` sends
+  unicast data injected from a monitor at 1 Mbit/s CCK, whatever rate the
+  radiotap header asks for; multicast goes at the band's basic rate. On 5 GHz,
+  where CCK doesn't exist, no unicast reaches the air at all. On channel 6 it
+  does, but a full frame then fills most of the 16 TU an iPhone on 5 GHz Wi-Fi
+  spends there once in sixteen slots, so discovery and the TLS handshake often
+  stall before the phone widens its visits (up to six slots once an exchange
+  is under way). Close and reopen the share sheet to retry. Sending the
+  phone's unicast in group-addressed frames instead (all-nodes, solicited-node
+  or broadcast) gets it on the air at 6 Mbit/s on 44, but iOS drops it. The
+  fix belongs in the driver: honour the injected rate for unicast data.
