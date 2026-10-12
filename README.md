@@ -55,16 +55,16 @@ and turn it on from the bar.
 | Intel AX201 | `iwlwifi` | ✅ Exclusive | Ubuntu 24.04 (kernel 6.8); CachyOS (kernel 7.2.9) |
 | Intel AX211 | `iwlwifi` | ✅ Exclusive | ThinkPad X1, `8086:51f1`, Ubuntu 26.04 (kernel 7.0); XPS 9320, `8086:51f0`, Arch (kernel 7.2.3) |
 | Intel BE (Panther Lake) | `iwlwifi` | ✅ Exclusive | XPS 16, `8086:e440`, Arch (kernel 7.2) |
-| MediaTek MT7921 | `mt7921e` | ❌ Exclusive ([#14](https://github.com/t4t5/omdrop-owl/issues/14)); shared untested | `14c3:7961`, CachyOS (kernel 7.2.9) |
+| MediaTek MT7921 | `mt7921e` | ✅ Exclusive ([active monitor](#active-monitor)) | `14c3:7961`, CachyOS (kernel 7.2.9) |
+| MediaTek MT7922 (RZ616) | `mt7921e` | ✅ Exclusive ([active monitor](#active-monitor)) | Minisforum MS-A2, `14c3:0616`, NixOS 26.05 (kernels 6.18 and 7.2.5) |
+| MediaTek MT7612U (USB) | `mt76x2u` | ✅ Exclusive ([active monitor](#active-monitor)) | `0e8d:7612` (kernel 7.2.9) |
 | Intel AX200 | `iwlwifi` | ❓ Exclusive untested | — |
 | Intel AX210 | `iwlwifi` | ❓ Exclusive untested | — |
 | Intel BE200 | `iwlwifi` | ❓ Exclusive untested | — |
 | Intel 9260 / 9560 | `iwlwifi` | ❓ Exclusive untested | — |
-| MediaTek MT7922 (RZ616) | `mt7921e` | ❓ Untested (opt-in) | — |
 | Qualcomm WCN6855 (QCNFA765) | `ath11k_pci` | ❓ Untested (opt-in) | — |
 | Qualcomm WCN7850 (FastConnect 7800) | `ath12k` | ❓ Untested (opt-in) | — |
 | Realtek RTL8852BE / RTL8852CE | `rtw89_8852be` / `rtw89_8852ce` | ❓ Untested (opt-in) | — |
-| MediaTek MT7612U (USB) | `mt76x2u` | ❓ Untested (opt-in), in progress in [#13](https://github.com/t4t5/omdrop-owl/pull/13) | — |
 
 - ✅ means both directions work
 - ❌ means that the mode was tried and fails.
@@ -99,7 +99,8 @@ around it varies, which is what the profile records.
    the report's `summary.txt`. The other files include your router's MAC.
 
 Cards that can't inject while connected can try `mode exclusive`, which takes
-Wi-Fi away for the window.
+Wi-Fi away for the window, or `mode active-monitor` if the card has no ad-hoc
+mode (`iw phy` lists no IBSS) but supports an active monitor.
 
 ## How it works
 
@@ -128,6 +129,20 @@ while the machine is visible and restores it on `stop`.
   16 slots (`-S pin`), and elects its sync master by metric (`-E`). Unicast
   frames are sent once to avoid retries stalling the queue.
 
+### Active monitor
+
+The MediaTek MT7921, MT7922 and MT7612U have no ad-hoc mode, so their profile
+says `mode active-monitor`: exclusive mode as above, with an active monitor in
+place of the ad-hoc interface ([#13](https://github.com/t4t5/omdrop-owl/pull/13),
+by kmod-midori).
+
+- The monitor interface is an active one, which ACKs unicast to its own MAC,
+  so it carries the station's.
+- The Wi-Fi interface itself becomes a passive monitor first. An active
+  monitor alone accepted channel changes but stayed on its old channel.
+- It runs on channel 6 only. On 44, the MT7922 put none of its unicast on the
+  air, while on 6 nearly all of it reached the phone.
+
 ## Development
 
 `just build` assembles the same files in `build/lib`, and `just test` runs the
@@ -144,3 +159,8 @@ installs the pacman package from the checkout.
   1.3 MB/s): injected frames leave at most one every ~2.5 ms.
 - **Intel cards are slow**, since AWDL on channel 6 gets few of the iPhone's
   slots: a 2.4 MB photo takes 10–17 s on an AX201.
+- **On an active monitor, a transfer can take a retry to start.** Until an
+  exchange is under way, an iPhone connected to Wi-Fi on 5 GHz visits channel 6
+  for one slot in sixteen, and the first round trip has to land in it. Once
+  the phone is talking to us it gives channel 6 up to six slots. If the
+  computer doesn't show up, close and reopen the share sheet.
